@@ -1,0 +1,7 @@
+node_modules/
+.npm-cache/
+.venv/
+test-vault/
+*.log
+.DS_Store
+.harness/
