@@ -32,7 +32,7 @@ const NS = 'note-coach';
 /** Simplified Chinese dictionary. */
 const zh: Record<string, string> = {
   'page.title': '笔记助手',
-  'page.urlHint': '独立页面 · 已另起窗口 · 可加书签',
+  'page.urlHint': '独立面板 · 右上角 × 关闭',
   'page.close': '关闭页面',
   'page.open': '在新窗口打开笔记助手独立页面',
   'page.session': '工作会话',
@@ -79,7 +79,7 @@ const zh: Record<string, string> = {
 /** English dictionary (same key set). */
 const en: Record<string, string> = {
   'page.title': 'Note Coach',
-  'page.urlHint': 'Dedicated page · new window · bookmarkable',
+  'page.urlHint': 'Standalone panel · close with ×',
   'page.close': 'Close page',
   'page.open': 'Open the note coach page in a new window',
   'page.session': 'Session',
@@ -287,35 +287,11 @@ async function runCommand(ctx: ClientCtx, sessionId: string, line: string): Prom
   return answered.value.result.text ?? '(无输出)';
 }
 
-const PAGE_PATH = '/notes-coach';
-const PAGE_HASH = '#/notes-coach';
-
-function isPageOpen(): boolean {
-  return window.location.pathname === PAGE_PATH || window.location.hash === PAGE_HASH;
-}
-
-/** Page-open state synced to the URL (path or hash). */
-function usePageOpen(): [boolean, () => void] {
-  const [open, setOpen] = useState(isPageOpen);
-  useEffect(() => {
-    const onChange = () => setOpen(isPageOpen());
-    window.addEventListener('hashchange', onChange);
-    window.addEventListener('popstate', onChange);
-    return () => {
-      window.removeEventListener('hashchange', onChange);
-      window.removeEventListener('popstate', onChange);
-    };
-  }, []);
-  const close = () => {
-    // Came via same-window navigation (back button restores the main app);
-    // otherwise (direct visit / bookmark) return to the root.
-    if (window.history.length > 1 && document.referrer !== '') {
-      window.history.back();
-    } else {
-      window.location.href = window.location.origin + '/';
-    }
-  };
-  return [open, close];
+/** 页面开合状态：纯组件状态。新版 dsh 无 URL 子路由（任意路径均 404），
+ *  整页跳转会报"网站出现问题"，因此不再修改地址栏，页面以覆盖层形式开合。 */
+function usePageOpen(): [boolean, () => void, () => void] {
+  const [open, setOpen] = useState(false);
+  return [open, () => setOpen(true), () => setOpen(false)];
 }
 
 /** Hidden session-scoped bridge: publishes pending interactions to the store. */
@@ -680,7 +656,7 @@ function NoteCoachPage({
             children: [
               jsxs('div', { style: { display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }, children: [
                 jsx('span', { style: { fontSize: 16, fontWeight: 700 }, children: '📝 ' + t('page.title') }),
-                jsx('span', { style: { fontSize: 12, color: 'var(--dsh-muted, #888)' }, children: `${t('page.urlHint')} · ${window.location.origin}${PAGE_PATH}` }),
+                jsx('span', { style: { fontSize: 12, color: 'var(--dsh-muted, #888)' }, children: t('page.urlHint') }),
                 jsx('label', { style: { fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }, children: [
                   t('page.session'),
                   jsx('select', {
@@ -815,14 +791,7 @@ function SidebarEntry({
   wide?: boolean;
   useSessions?: (s: (st: { ids?: string[]; byId?: Record<string, { title?: string; cwd?: string }>; current?: string }) => unknown) => unknown;
 }) {
-  const [open, close] = usePageOpen();
-  const openPage = () => {
-    if (open) return;
-    // Navigate the CURRENT window to the dedicated URL (no second window):
-    // the address genuinely changes to /notes-coach and the browser back
-    // button returns to the main app.
-    window.location.href = window.location.origin + PAGE_PATH;
-  };
+  const [open, openPage, close] = usePageOpen();
   if (open) {
     // Portal to document.body: escape any ancestor stacking context (the
     // sidebar footer lives inside transformed containers), so nothing in the

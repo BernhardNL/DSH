@@ -15458,6 +15458,7 @@ var zh = {
   "page.session": "\u5DE5\u4F5C\u533A/\u4F1A\u8BDD",
   "page.noSession": "\uFF08\u65E0\u4F1A\u8BDD\uFF09",
   "page.close": "\u5173\u95ED\u9875\u9762",
+  "page.hint": "\u72EC\u7ACB\u9762\u677F \xB7 \u53F3\u4E0A\u89D2 \u2715 \u5173\u95ED",
   "page.open": "\u6253\u5F00\u6570\u5B66\u5EFA\u6A21\u52A9\u624B",
   "prob.label": "\u9898\u76EE\u5206\u6790",
   "prob.input": "\u8F93\u5165\u9898\u76EE\u63CF\u8FF0\u2026\uFF08\u6216\u9009\u62E9\u4E0B\u65B9\u6587\u4EF6\uFF09",
@@ -15508,6 +15509,7 @@ var en = {
   "page.session": "Workspace / Session",
   "page.noSession": "(no session)",
   "page.close": "Close",
+  "page.hint": "Standalone panel \xB7 close with \u2715",
   "page.open": "Open math modeling assistant",
   "prob.label": "Problem Analysis",
   "prob.input": "Describe the problem\u2026 (or pick a file below)",
@@ -15558,26 +15560,9 @@ async function runCommand(ctx, sessionId, line) {
   if (!answered.ok) return `\u547D\u4EE4\u6267\u884C\u5931\u8D25\uFF1A${answered.error.code} ${answered.error.message}`;
   return answered.value.result.text ?? "(\u65E0\u8F93\u51FA)";
 }
-var PAGE_PATH = "/math-assistant";
-function isPageOpen() {
-  return window.location.pathname === PAGE_PATH || window.location.hash === "#/math-assistant";
-}
 function usePageOpen() {
-  const [open2, setOpen] = (0, import_react.useState)(isPageOpen);
-  (0, import_react.useEffect)(() => {
-    const onChange = () => setOpen(isPageOpen());
-    window.addEventListener("hashchange", onChange);
-    window.addEventListener("popstate", onChange);
-    return () => {
-      window.removeEventListener("hashchange", onChange);
-      window.removeEventListener("popstate", onChange);
-    };
-  }, []);
-  const close2 = () => {
-    if (window.history.length > 1 && document.referrer !== "") window.history.back();
-    else window.location.href = window.location.origin + "/";
-  };
-  return [open2, close2];
+  const [open2, setOpen] = (0, import_react.useState)(false);
+  return [open2, () => setOpen(true), () => setOpen(false)];
 }
 var SPIN_CSS = "@keyframes nc-spin { to { transform: rotate(360deg); } }.nc-spinner { box-sizing: border-box; border-radius: 50%; border: 2px solid var(--dsh-border, #d0d0d0); border-top-color: #2563eb; animation: nc-spin 0.8s linear infinite; display: inline-block; }";
 function Spinner({ size = 18 }) {
@@ -15871,7 +15856,7 @@ function MathPage({
             children: [
               (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }, children: [
                 (0, import_jsx_runtime.jsx)("span", { style: { fontSize: 16, fontWeight: 700 }, children: "\u{1F9EE} " + t("page.title") }),
-                (0, import_jsx_runtime.jsx)("span", { style: { fontSize: 12, color: "var(--dsh-muted,#888)" }, children: `${window.location.origin}${PAGE_PATH}` }),
+                (0, import_jsx_runtime.jsx)("span", { style: { fontSize: 12, color: "var(--dsh-muted,#888)" }, children: t("page.hint") }),
                 (0, import_jsx_runtime.jsx)("label", { style: { fontSize: 13, display: "flex", alignItems: "center", gap: 6 }, children: [
                   t("page.session"),
                   (0, import_jsx_runtime.jsx)("select", {
@@ -16066,11 +16051,7 @@ function MathPage({
   });
 }
 function SidebarEntry({ ctx, t, wide, useSessions }) {
-  const [open2, close2] = usePageOpen();
-  const openPage = () => {
-    if (open2) return;
-    window.location.href = window.location.origin + PAGE_PATH;
-  };
+  const [open2, openPage, close2] = usePageOpen();
   if (open2) {
     return (0, import_react_dom.createPortal)((0, import_jsx_runtime.jsx)(PageErrorBoundary, { children: (0, import_jsx_runtime.jsx)(MathPage, { ctx, t, useSessions, close: close2 }) }), document.body);
   }

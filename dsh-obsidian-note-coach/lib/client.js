@@ -15455,7 +15455,7 @@ var EMPTY = [];
 var NS = "note-coach";
 var zh = {
   "page.title": "\u7B14\u8BB0\u52A9\u624B",
-  "page.urlHint": "\u72EC\u7ACB\u9875\u9762 \xB7 \u5DF2\u53E6\u8D77\u7A97\u53E3 \xB7 \u53EF\u52A0\u4E66\u7B7E",
+  "page.urlHint": "\u72EC\u7ACB\u9762\u677F \xB7 \u53F3\u4E0A\u89D2 \xD7 \u5173\u95ED",
   "page.close": "\u5173\u95ED\u9875\u9762",
   "page.open": "\u5728\u65B0\u7A97\u53E3\u6253\u5F00\u7B14\u8BB0\u52A9\u624B\u72EC\u7ACB\u9875\u9762",
   "page.session": "\u5DE5\u4F5C\u4F1A\u8BDD",
@@ -15500,7 +15500,7 @@ var zh = {
 };
 var en = {
   "page.title": "Note Coach",
-  "page.urlHint": "Dedicated page \xB7 new window \xB7 bookmarkable",
+  "page.urlHint": "Standalone panel \xB7 close with \xD7",
   "page.close": "Close page",
   "page.open": "Open the note coach page in a new window",
   "page.session": "Session",
@@ -15646,30 +15646,9 @@ async function runCommand(ctx, sessionId, line) {
   }
   return answered.value.result.text ?? "(\u65E0\u8F93\u51FA)";
 }
-var PAGE_PATH = "/notes-coach";
-var PAGE_HASH = "#/notes-coach";
-function isPageOpen() {
-  return window.location.pathname === PAGE_PATH || window.location.hash === PAGE_HASH;
-}
 function usePageOpen() {
-  const [open2, setOpen] = (0, import_react.useState)(isPageOpen);
-  (0, import_react.useEffect)(() => {
-    const onChange = () => setOpen(isPageOpen());
-    window.addEventListener("hashchange", onChange);
-    window.addEventListener("popstate", onChange);
-    return () => {
-      window.removeEventListener("hashchange", onChange);
-      window.removeEventListener("popstate", onChange);
-    };
-  }, []);
-  const close2 = () => {
-    if (window.history.length > 1 && document.referrer !== "") {
-      window.history.back();
-    } else {
-      window.location.href = window.location.origin + "/";
-    }
-  };
-  return [open2, close2];
+  const [open2, setOpen] = (0, import_react.useState)(false);
+  return [open2, () => setOpen(true), () => setOpen(false)];
 }
 function PendingBridge(props) {
   const pending = props.useSession?.((s) => s.pending);
@@ -15964,7 +15943,7 @@ function NoteCoachPage({
             children: [
               (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }, children: [
                 (0, import_jsx_runtime.jsx)("span", { style: { fontSize: 16, fontWeight: 700 }, children: "\u{1F4DD} " + t("page.title") }),
-                (0, import_jsx_runtime.jsx)("span", { style: { fontSize: 12, color: "var(--dsh-muted, #888)" }, children: `${t("page.urlHint")} \xB7 ${window.location.origin}${PAGE_PATH}` }),
+                (0, import_jsx_runtime.jsx)("span", { style: { fontSize: 12, color: "var(--dsh-muted, #888)" }, children: t("page.urlHint") }),
                 (0, import_jsx_runtime.jsx)("label", { style: { fontSize: 13, display: "flex", alignItems: "center", gap: 6 }, children: [
                   t("page.session"),
                   (0, import_jsx_runtime.jsx)("select", {
@@ -16106,11 +16085,7 @@ function SidebarEntry({
   wide,
   useSessions
 }) {
-  const [open2, close2] = usePageOpen();
-  const openPage = () => {
-    if (open2) return;
-    window.location.href = window.location.origin + PAGE_PATH;
-  };
+  const [open2, openPage, close2] = usePageOpen();
   if (open2) {
     return (0, import_react_dom.createPortal)(
       (0, import_jsx_runtime.jsx)(PageErrorBoundary, { children: (0, import_jsx_runtime.jsx)(NoteCoachPage, { ctx, t, useSessions, close: close2 }) }),
