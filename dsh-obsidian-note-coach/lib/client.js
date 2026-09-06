@@ -15640,7 +15640,7 @@ function parseJudgment(text2) {
   };
 }
 async function runCommand(ctx, sessionId, line) {
-  const answered = await ctx.remote.commands.execute(sessionId, line);
+  const answered = await ctx.remote.commands.execute(sessionId, line, []);
   if (!answered.ok) {
     return `\u547D\u4EE4\u6267\u884C\u5931\u8D25\uFF1A${answered.error.code} ${answered.error.message}`;
   }

@@ -134,7 +134,7 @@ interface ClientCtx {
   };
   remote: {
     commands: {
-      execute(sessionId: string, line: string): Promise<
+      execute(sessionId: string, line: string, images?: readonly unknown[]): Promise<
         | { ok: true; value: { commandId: string; result: { kind: 'success'; text?: string } | { kind: 'error'; text: string } } }
         | { ok: false; error: { code: string; message: string } }
       >;
@@ -151,7 +151,8 @@ interface ClientCtx {
 }
 
 async function runCommand(ctx: ClientCtx, sessionId: string, line: string): Promise<string> {
-  const answered = await ctx.remote.commands.execute(sessionId, line);
+  // 新版 dsh：commands/execute 需要 (sessionId, line, images[]) 三个业务参数
+  const answered = await ctx.remote.commands.execute(sessionId, line, []);
   if (!answered.ok) return `命令执行失败：${answered.error.code} ${answered.error.message}`;
   return answered.value.result.text ?? '(无输出)';
 }
