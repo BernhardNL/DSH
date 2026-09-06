@@ -15733,13 +15733,15 @@ function QuestionDialog({ wait, t }) {
   ] });
 }
 var COMMAND_PREFIXES = ["\u6C42\u89E3", "\u5EFA\u6A21", "\u5206\u6790", "\u5B9E\u73B0", "\u5EFA\u7ACB", "\u62DF\u5408", "\u9884\u6D4B", "\u4F18\u5316", "\u6A21\u62DF", "\u6574\u7406", "\u5199"];
-function MathPage({
-  ctx,
-  t,
-  useSessions,
-  close: close2
-}) {
-  const list = useSessions?.((st2) => st2);
+function MathPage({ ctx, t, close: close2 }) {
+  const sessionsObs = ctx.sessions?.list;
+  const [list, setList] = (0, import_react.useState)(() => sessionsObs?.getSnapshot());
+  (0, import_react.useEffect)(() => {
+    if (!sessionsObs) return;
+    const sync = () => setList(sessionsObs.getSnapshot());
+    sync();
+    return sessionsObs.subscribe(sync);
+  }, [sessionsObs]);
   const ids = list?.ids ?? [];
   const current = list?.current;
   const idsRef = (0, import_react.useRef)([]);
@@ -15758,7 +15760,7 @@ function MathPage({
       }
     } catch {
     }
-  }, [sessionId, current]);
+  }, [sessionId, current, ctx]);
   const [problemText, setProblemText] = (0, import_react.useState)("");
   const [chatInput, setChatInput] = (0, import_react.useState)("");
   const [refTopic, setRefTopic] = (0, import_react.useState)("");
@@ -16050,10 +16052,10 @@ function MathPage({
     ]
   });
 }
-function SidebarEntry({ ctx, t, wide, useSessions }) {
+function SidebarEntry({ ctx, t, wide }) {
   const [open2, openPage, close2] = usePageOpen();
   if (open2) {
-    return (0, import_react_dom.createPortal)((0, import_jsx_runtime.jsx)(PageErrorBoundary, { children: (0, import_jsx_runtime.jsx)(MathPage, { ctx, t, useSessions, close: close2 }) }), document.body);
+    return (0, import_react_dom.createPortal)((0, import_jsx_runtime.jsx)(PageErrorBoundary, { children: (0, import_jsx_runtime.jsx)(MathPage, { ctx, t, close: close2 }) }), document.body);
   }
   return (0, import_jsx_runtime.jsx)("div", {
     style: { position: "relative" },
@@ -16081,7 +16083,7 @@ function apply(ctx) {
     "sidebar.footer.action",
     () => ctx.slots.register(
       { name: "sidebar.footer.action", id: "math-assistant-entry", locale: NS },
-      (props) => (0, import_jsx_runtime.jsx)(SidebarEntry, { ctx, t, wide: props.wide, useSessions: props.useSessions })
+      (props) => (0, import_jsx_runtime.jsx)(SidebarEntry, { ctx, t, wide: props.wide })
     )
   );
 }

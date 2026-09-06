@@ -15852,13 +15852,15 @@ var dialogInputStyle = {
   fontFamily: "inherit",
   fontSize: 13
 };
-function NoteCoachPage({
-  ctx,
-  t,
-  useSessions,
-  close: close2
-}) {
-  const list = useSessions?.((st2) => st2);
+function NoteCoachPage({ ctx, t, close: close2 }) {
+  const sessionsObs = ctx.sessions?.list;
+  const [list, setList] = (0, import_react.useState)(() => sessionsObs?.getSnapshot());
+  (0, import_react.useEffect)(() => {
+    if (!sessionsObs) return;
+    const sync = () => setList(sessionsObs.getSnapshot());
+    sync();
+    return sessionsObs.subscribe(sync);
+  }, [sessionsObs]);
   const ids = list?.ids ?? [];
   const current = list?.current;
   const [sessionId, setSessionId] = (0, import_react.useState)(current && ids.includes(current) ? current : ids[0]);
@@ -16079,16 +16081,11 @@ function NoteCoachPage({
     ]
   });
 }
-function SidebarEntry({
-  ctx,
-  t,
-  wide,
-  useSessions
-}) {
+function SidebarEntry({ ctx, t, wide }) {
   const [open2, openPage, close2] = usePageOpen();
   if (open2) {
     return (0, import_react_dom.createPortal)(
-      (0, import_jsx_runtime.jsx)(PageErrorBoundary, { children: (0, import_jsx_runtime.jsx)(NoteCoachPage, { ctx, t, useSessions, close: close2 }) }),
+      (0, import_jsx_runtime.jsx)(PageErrorBoundary, { children: (0, import_jsx_runtime.jsx)(NoteCoachPage, { ctx, t, close: close2 }) }),
       document.body
     );
   }
@@ -16140,7 +16137,7 @@ function apply(ctx) {
         id: "note-coach-panel",
         locale: NS
       },
-      (props) => (0, import_jsx_runtime.jsx)(SidebarEntry, { ctx, t, wide: props.wide, useSessions: props.useSessions })
+      (props) => (0, import_jsx_runtime.jsx)(SidebarEntry, { ctx, t, wide: props.wide })
     )
   );
 }

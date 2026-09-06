@@ -140,7 +140,14 @@ interface ClientCtx {
       >;
     };
   };
-  sessions: { open(id: string): void };
+  sessions: {
+    open(id: string): void;
+    /** ObservableSnapshot：getSnapshot() + subscribe()（新版 dsh 的 ctx.sessions.list） */
+    list?: {
+      getSnapshot(): { ids?: string[]; byId?: Record<string, { title?: string; cwd?: string; displayTitle?: string }>; current?: string };
+      subscribe(fn: () => void): () => void;
+    };
+  };
 }
 
 async function runCommand(ctx: ClientCtx, sessionId: string, line: string): Promise<string> {
@@ -361,20 +368,18 @@ interface Snapshot {
 
 const COMMAND_PREFIXES = ['求解', '建模', '分析', '实现', '建立', '拟合', '预测', '优化', '模拟', '整理', '写'];
 
-function MathPage({
-  ctx,
-  t,
-  useSessions,
-  close,
-}: {
-  ctx: ClientCtx;
-  t: (k: string) => string;
-  useSessions?: (s: (st: { ids?: string[]; byId?: Record<string, { title?: string; cwd?: string; displayTitle?: string }>; current?: string }) => unknown) => unknown;
-  close: () => void;
-}) {
-  const list = (useSessions as ((s: (st: { ids?: string[]; byId?: Record<string, { title?: string; cwd?: string; displayTitle?: string }>; current?: string }) => unknown) => unknown) | undefined)?.((st) => st) as
-    | { ids?: string[]; byId?: Record<string, { title?: string; cwd?: string; displayTitle?: string }>; current?: string }
-    | undefined;
+function MathPage({ ctx, t, close }: { ctx: ClientCtx; t: (k: string) => string; close: () => void }) {
+  // 会话/工作区列表：新版 dsh（0.1.1）的 sidebar.footer.action 不再注入 useSessions，
+  // 改为直接订阅 ctx.sessions.list（ObservableSnapshot：getSnapshot + subscribe）。
+  type SessionListLike = { ids?: string[]; byId?: Record<string, { title?: string; cwd?: string; displayTitle?: string }>; current?: string };
+  const sessionsObs = ctx.sessions?.list as { getSnapshot(): SessionListLike; subscribe(fn: () => void): () => void } | undefined;
+  const [list, setList] = useState<SessionListLike | undefined>(() => sessionsObs?.getSnapshot());
+  useEffect(() => {
+    if (!sessionsObs) return;
+    const sync = () => setList(sessionsObs.getSnapshot());
+    sync();
+    return sessionsObs.subscribe(sync);
+  }, [sessionsObs]);
   const ids = list?.ids ?? [];
   const current = list?.current;
   const idsRef = useRef<string[]>([]);
@@ -394,7 +399,7 @@ function MathPage({
     } catch {
       /* ignore */
     }
-  }, [sessionId, current]);
+  }, [sessionId, current, ctx]);
 
   const [problemText, setProblemText] = useState('');
   const [chatInput, setChatInput] = useState('');
@@ -688,10 +693,10 @@ function MathPage({
   });
 }
 
-function SidebarEntry({ ctx, t, wide, useSessions }: { ctx: ClientCtx; t: (k: string) => string; wide?: boolean; useSessions?: (s: (st: unknown) => unknown) => unknown }) {
+function SidebarEntry({ ctx, t, wide }: { ctx: ClientCtx; t: (k: string) => string; wide?: boolean }) {
   const [open, openPage, close] = usePageOpen();
   if (open) {
-    return createPortal(jsx(PageErrorBoundary, { children: jsx(MathPage, { ctx, t, useSessions, close }) }), document.body);
+    return createPortal(jsx(PageErrorBoundary, { children: jsx(MathPage, { ctx, t, close }) }), document.body);
   }
   return jsx('div', {
     style: { position: 'relative' },
@@ -717,8 +722,8 @@ function apply(ctx: ClientCtx) {
   );
 
   ctx.slots.inject('sidebar.footer.action', () =>
-    ctx.slots.register({ name: 'sidebar.footer.action', id: 'math-assistant-entry', locale: NS }, (props: { wide?: boolean; useSessions?: (s: (st: unknown) => unknown) => unknown }) =>
-      jsx(SidebarEntry, { ctx, t, wide: props.wide, useSessions: props.useSessions }),
+    ctx.slots.register({ name: 'sidebar.footer.action', id: 'math-assistant-entry', locale: NS }, (props: { wide?: boolean }) =>
+      jsx(SidebarEntry, { ctx, t, wide: props.wide }),
     ),
   );
 }

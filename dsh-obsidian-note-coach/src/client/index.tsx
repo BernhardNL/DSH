@@ -148,6 +148,11 @@ interface ClientCtx {
   /** Client runtime sessions service: `open()` selects the current session. */
   sessions: {
     open(id: string): void;
+    /** ObservableSnapshot：getSnapshot() + subscribe()（新版 dsh 的 ctx.sessions.list） */
+    list?: {
+      getSnapshot(): { ids?: string[]; byId?: Record<string, { title?: string; cwd?: string; displayTitle?: string }>; current?: string };
+      subscribe(fn: () => void): () => void;
+    };
   };
 }
 
@@ -534,21 +539,18 @@ const dialogInputStyle = {
 } as const;
 
 /** Full-screen page content. */
-function NoteCoachPage({
-  ctx,
-  t,
-  useSessions,
-  close,
-}: {
-  ctx: ClientCtx;
-  t: (k: string) => string;
-  useSessions?: (selector: (st: { ids?: string[]; byId?: Record<string, { title?: string; cwd?: string }>; current?: string }) => unknown) => unknown;
-  close: () => void;
-}) {
-  const list = (useSessions as ((s: (st: { ids?: string[]; byId?: Record<string, { title?: string; cwd?: string }>; current?: string }) => unknown) => unknown) | undefined)?.((st) => st) as
-    | { ids?: string[]; byId?: Record<string, { title?: string; cwd?: string }>; current?: string }
-    | undefined;
-
+function NoteCoachPage({ ctx, t, close }: { ctx: ClientCtx; t: (k: string) => string; close: () => void }) {
+  // 会话/工作区列表：新版 dsh（0.1.1）的 sidebar.footer.action 不再注入 useSessions，
+  // 改为直接订阅 ctx.sessions.list（ObservableSnapshot：getSnapshot + subscribe）。
+  type SessionListLike = { ids?: string[]; byId?: Record<string, { title?: string; cwd?: string; displayTitle?: string }>; current?: string };
+  const sessionsObs = ctx.sessions?.list as { getSnapshot(): SessionListLike; subscribe(fn: () => void): () => void } | undefined;
+  const [list, setList] = useState<SessionListLike | undefined>(() => sessionsObs?.getSnapshot());
+  useEffect(() => {
+    if (!sessionsObs) return;
+    const sync = () => setList(sessionsObs.getSnapshot());
+    sync();
+    return sessionsObs.subscribe(sync);
+  }, [sessionsObs]);
   const ids = list?.ids ?? [];
   const current = list?.current;
   const [sessionId, setSessionId] = useState<string | undefined>(current && ids.includes(current) ? current : ids[0]);
@@ -780,17 +782,7 @@ function NoteCoachPage({
   });
 }
 
-function SidebarEntry({
-  ctx,
-  t,
-  wide,
-  useSessions,
-}: {
-  ctx: ClientCtx;
-  t: (k: string) => string;
-  wide?: boolean;
-  useSessions?: (s: (st: { ids?: string[]; byId?: Record<string, { title?: string; cwd?: string }>; current?: string }) => unknown) => unknown;
-}) {
+function SidebarEntry({ ctx, t, wide }: { ctx: ClientCtx; t: (k: string) => string; wide?: boolean }) {
   const [open, openPage, close] = usePageOpen();
   if (open) {
     // Portal to document.body: escape any ancestor stacking context (the
@@ -798,7 +790,7 @@ function SidebarEntry({
     // shell can paint above the full-screen page. The error boundary turns any
     // render crash into a visible message instead of falling back to the app.
     return createPortal(
-      jsx(PageErrorBoundary, { children: jsx(NoteCoachPage, { ctx, t, useSessions, close }) }),
+      jsx(PageErrorBoundary, { children: jsx(NoteCoachPage, { ctx, t, close }) }),
       document.body,
     );
   }
@@ -847,8 +839,7 @@ function apply(ctx: ClientCtx) {
   );
 
   // Sidebar entry: renders the sidebar button AND the dedicated page.
-  // The page opens in this window when the URL is /notes-coach (or the
-  // #/notes-coach hash), covering the shell with its own full-screen view.
+  // 新版 dsh（0.1.1）无 URL 子路由：页面以覆盖层状态开合，不再整页跳转。
   ctx.slots.inject('sidebar.footer.action', () =>
     ctx.slots.register(
       {
@@ -856,10 +847,7 @@ function apply(ctx: ClientCtx) {
         id: 'note-coach-panel',
         locale: NS,
       },
-      (props: {
-        wide?: boolean;
-        useSessions?: (s: (st: { ids?: string[]; byId?: Record<string, { title?: string; cwd?: string }>; current?: string }) => unknown) => unknown;
-      }) => jsx(SidebarEntry, { ctx, t, wide: props.wide, useSessions: props.useSessions }),
+      (props: { wide?: boolean }) => jsx(SidebarEntry, { ctx, t, wide: props.wide }),
     ),
   );
 }
